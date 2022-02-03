@@ -1,23 +1,33 @@
-import logo from './logo.svg';
+import React from 'react';
 import './App.css';
+import { readRasterFromURL } from 'fast-geotiff'
+//import
+
+console.log("starting...")
+const imageData = readRasterFromURL('nasa.tif')
+
+class Map extends React.Component{
+  constructor(props){
+    super(props);
+    //this.state = {text : props.text};
+  }
+
+  render(){
+    return(
+      <div className="map">
+      <h2> {this.props.text} </h2>
+      </div>
+    );
+  }
+}
+
 
 function App() {
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <h1> Testing the Geotiff import </h1>
+      <Map text={"Here will be a map"}/>
     </div>
   );
 }
