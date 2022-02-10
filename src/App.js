@@ -9,8 +9,9 @@ import {Deck} from "@deck.gl/core"
 import {StaticMap} from 'react-map-gl';
 import GeoTIFF, { fromUrl, fromUrls, fromArrayBuffer, fromBlob } from 'geotiff';
 import Sketch from "react-p5";
-//import p5 from "p5"
 
+
+//GLOBAL VARIABLES
 const url = "park.tif";
 const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoiam9ldmVjeiIsImEiOiJja3lpcms5N3ExZTAzMm5wbWRkeWFuNTA3In0.dHgiiwOgD-f7gD7qP084rg';
 
@@ -18,6 +19,7 @@ let loaded = false;
 let image;
 let rgb;
 
+//THIS WORKS FINE
 async function getGeotiff(){
   let response;
   let arrayBuffer;
@@ -47,16 +49,20 @@ async function getGeotiff(){
 
 getGeotiff();
 
+//THE FUTURE IMG ELEMENT
 let snapshot;
 
+//THE OFFSCREEN CANVAS FOR P5 LIBRARY
 let board;
 let done = false;
 
+//SETUP RUNS ONCE. SET "draw" TO RUN ONCE A SECOND
 let setup = async (p5, canvasParentRef) => {
-  //p5.createCanvas(0, 0).parent(canvasParentRef);
   p5.frameRate(1);
 };
 
+//MEANWHILE DRAW RUNS EVERY SECOND. ONCE "getGeoTiff()"" sets "loaded" to true, parse the image
+//AND SET "SNAPSHOT" TO POINT TO THE NEWLY MADE IMG
 let draw = (p5) => {
   if(loaded == true){
     if(done == false){
@@ -91,6 +97,7 @@ let draw = (p5) => {
   }
 };
 
+//THE REACT COMPONENT DRAWING THE IMAGE STORED IN THE "snapshot" VARIABLE AND A MAP WITH THE SAME IMAGE ON IT.
 class ImageMap extends React.Component{
   constructor(props){
     super(props);
@@ -107,6 +114,7 @@ class ImageMap extends React.Component{
   render(){
     const INITIAL_VIEW_STATE = {longitude: -122.41669,latitude: 37.7853,zoom: 13};
 
+    //LAYERS FOR DECKGL. LineLayer TO DRAW A RANDOM LINE. BitmapLayer TO DRAW THE "snapshot" ON IT.
     const layers = [
       new LineLayer({id: 'line-layer', data: [{sourcePosition: [-122.41669, 37.7853], targetPosition: [-122.41669, 37.781]}]}),
       new BitmapLayer({id: 'bitmap-layer', bounds: [-122.5190, 37.7045, -122.355, 37.829], image: this.props.image})
@@ -115,10 +123,12 @@ class ImageMap extends React.Component{
     console.log("ImageMap is rerendering");
     console.log("Loaded image: ");
     console.log(this.state.image);
+
     return(
       <div>
-
+      //DRAW THE IMAGE FROM PROPS (WHICH LOADS AT ANY TIME)
       <img src = {this.props.image} />
+      //DRAW THE DECKGL COMPONENT CONTAINING THE "layers" VARIABLE. CORRECTLY LOADS LineLayer, NOT BirmapLayer WITH THE CORRECT IMAGE ("snapshot" variable)
       <DeckGL
       initialViewState={INITIAL_VIEW_STATE}
       controller={true}
@@ -138,8 +148,9 @@ function App() {
   return (
     <div className="App">
     <h1> DECK.GL GEOTIFF TEST </h1>
-
+    //RUN THE SKETCH (SETUP ONCE AND DRAW EVERY SECOND)
     <Sketch setup={setup} draw={draw} className="P5" />
+    //RENDER THE IMAGEMAP COMPONENT, PASS THE "snapshot" CONTAINING THE IMAGE AND IF THE IMAGE IS LOADED
     <ImageMap image={snapshot} loaded={done}/>
     </div>
   );
