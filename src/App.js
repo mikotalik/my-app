@@ -10,7 +10,7 @@ import {StaticMap} from 'react-map-gl';
 import GeoTIFF, { fromUrl, fromUrls, fromArrayBuffer, fromBlob } from 'geotiff';
 import Sketch from "react-p5";
 
-const url = "copernicus.tif";
+const url = "dsm.tif";
 const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoiam9ldmVjeiIsImEiOiJja3lpcms5N3ExZTAzMm5wbWRkeWFuNTA3In0.dHgiiwOgD-f7gD7qP084rg';
 
 console.clear();
@@ -20,23 +20,20 @@ const scale = (num, in_min, in_max, out_min, out_max) => {
 }
 
 async function getGeotiffData(dataUrl){
-  let response;
-  let arrayBuffer;
-  let tiff;
   let image;
 
-  response = await fetch(dataUrl);
-  arrayBuffer = await response.arrayBuffer();
-  tiff = await fromArrayBuffer(arrayBuffer);
+  const response = await fetch(dataUrl);
+  const arrayBuffer = await response.arrayBuffer();
+  const tiff = await fromArrayBuffer(arrayBuffer);
   image = await tiff.getImage(0);
 
   const origin = image.getOrigin();
   const resolution = image.getResolution();
   const bbox = image.getBoundingBox();
 
-  console.log("origin " + origin);
-  console.log("resolution " + resolution);
-  console.log("bounding box " + bbox);
+  console.log("tiff origin " + origin);
+  console.log("tiff resolution " + resolution);
+  console.log("tiff bounding box " + bbox);
 
   return image;
 }
@@ -133,7 +130,7 @@ async function geotiffUrlToImg(address){
 
 class GeoImage{
   image = new Image();
-  boundingBox = [0,0,0,0];
+  boundingBox = [0,0,10,10];
 
   constructor(image, boundingBox){
     this.image = image;
