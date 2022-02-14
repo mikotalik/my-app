@@ -10,8 +10,14 @@ import {StaticMap} from 'react-map-gl';
 import GeoTIFF, { fromUrl, fromUrls, fromArrayBuffer, fromBlob } from 'geotiff';
 import Sketch from "react-p5";
 
-const url = "park.tif";
+const url = "copernicus.tif";
 const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoiam9ldmVjeiIsImEiOiJja3lpcms5N3ExZTAzMm5wbWRkeWFuNTA3In0.dHgiiwOgD-f7gD7qP084rg';
+
+console.clear();
+
+const scale = (num, in_min, in_max, out_min, out_max) => {
+  return (num - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 async function getGeotiffData(dataUrl){
   let response;
@@ -23,7 +29,6 @@ async function getGeotiffData(dataUrl){
   arrayBuffer = await response.arrayBuffer();
   tiff = await fromArrayBuffer(arrayBuffer);
   image = await tiff.getImage(0);
-  const rgb = await image.readRGB()
 
   const origin = image.getOrigin();
   const resolution = image.getResolution();
@@ -39,8 +44,11 @@ async function getGeotiffData(dataUrl){
 async function geoImg(geoTiffData){
   const width = await geoTiffData.getWidth();
   const height = await geoTiffData.getHeight();
-  const rgb = await geoTiffData.readRGB();
-  let colorBytes = await geoTiffData.getBytesPerPixel();
+  //const rgb = await geoTiffData.readRGB();
+  const rasters = await geoTiffData.readRasters();
+  //const rgb = await (geoTiffData.readRasters()[]);
+  const channels = rasters.length;
+  const colorBytes = await geoTiffData.getBytesPerPixel();
 
   let canvas = document.createElement("canvas");
   canvas.width = width;
@@ -48,31 +56,71 @@ async function geoImg(geoTiffData){
   let c = canvas.getContext('2d');
   let imageData = c.createImageData(width, height);
 
+  let range_min = 200;//0
+  let range_max = 300;//2048
+  let color = [255,0,255];
 
-  console.log("canvas width: " + width);
-  console.log("canvas height: " + height);
+  console.log("resolution: " + width + " * " + height);
 
-  console.log("canvas pixels: " + imageData.data.length);
-  console.log("data pixels: " + rgb.length);
+  //console.log("canvas pixels: " + imageData.data.length);
+  //console.log("data pixels: " + rgb.length);
 
   console.log("data bytes per pixel: " + colorBytes);
   console.log("data samples per pixel: " + await geoTiffData.getSamplesPerPixel());
-  console.log("pixels: ");
-  //console.log(await geoTiffData.readRasters());
+  //console.log("rasters: ");
+  //console.log(rasters);
 
-  let offset = 0;
-  for(let i = 0; i < width*height*4; i+=1){
-    if(i%4!=0){
-      offset += 1;
+  if(channels == 1){
+    let pixel = 0;
+    for(let i = 0; i < width*height*4; i+=4){
+      let r = color[0];
+      let g = color[1];
+      let b = color[2];
+
+      let a = scale(rasters[0][pixel],range_min,range_max,0,255);
+
+      imageData.data[i+0] = r;
+      imageData.data[i+1] = g;
+      imageData.data[i+2] = b;
+      imageData.data[i+3] = a;
+
+      pixel++;
     }
-    imageData.data[i] = rgb[offset];
-    if(i%4==0){
-      imageData.data[i-1] = 255;
+  }else if(channels == 3){
+    let pixel = 0;
+    for(let i = 0; i < width*height*4; i+=4){
+      let r = rasters[0][pixel];
+      let g = rasters[1][pixel];
+      let b = rasters[2][pixel];
+      let a = 255;
+
+      imageData.data[i+0] = r;
+      imageData.data[i+1] = g;
+      imageData.data[i+2] = b;
+      imageData.data[i+3] = a;
+
+      pixel++;
+    }
+  }else if(channels == 4){
+    let pixel = 0;
+    for(let i = 0; i < width*height*4; i+=4){
+      let r = rasters[0][pixel];
+      let g = rasters[1][pixel];
+      let b = rasters[2][pixel];
+      let a = rasters[3][pixel];
+
+      imageData.data[i+0] = r;
+      imageData.data[i+1] = g;
+      imageData.data[i+2] = b;
+      imageData.data[i+3] = a;
+
+      pixel++;
     }
   }
-  c.putImageData(imageData,0,0);
-  let imageUrl = canvas.toDataURL('image/png');
-  return imageUrl;
+
+c.putImageData(imageData,0,0);
+let imageUrl = canvas.toDataURL('image/png');
+return imageUrl;
 }
 
 async function geotiffUrlToImg(address){
@@ -85,7 +133,7 @@ async function geotiffUrlToImg(address){
 
 class GeoImage{
   image = new Image();
-  boundingBox = [0,0,10,10];
+  boundingBox = [0,0,0,0];
 
   constructor(image, boundingBox){
     this.image = image;
@@ -117,8 +165,8 @@ class ImageMap extends React.Component{
   }
 
   render(){
-    //let initial_view_state = {longitude: this.state.boundingBox[0],latitude: this.state.boundingBox[1],zoom: 12};
-    let initial_view_state = {longitude: -95.39842728115566,latitude: 29.763892665956423, zoom: 12};
+    let initial_view_state = {longitude: this.state.boundingBox[0],latitude: this.state.boundingBox[1],zoom: 12};
+    //let initial_view_state = {longitude: -95.39842728115566,latitude: 29.763892665956423, zoom: 12};
 
     console.log("Bounding box: " + this.state.boundingBox);
 
