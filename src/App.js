@@ -19,6 +19,18 @@ const scale = (num, in_min, in_max, out_min, out_max) => {
   return (num - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+const clamp = (num, min, max) => {
+  return Math.min(Math.max(num, max), min);
+}
+
+const heatmap = (num, min, max) => {
+    const ratio = 2 * (num-min) / (max - min);
+    const b = (Math.max(0, 255*(1 - ratio)));
+    const r = (Math.max(0, 255*(ratio - 1)));
+    const g = 255 - b - r;
+    return [r,g,b];
+}
+
 async function getGeotiffData(dataUrl){
   let image;
 
@@ -41,9 +53,7 @@ async function getGeotiffData(dataUrl){
 async function geoImg(geoTiffData){
   const width = await geoTiffData.getWidth();
   const height = await geoTiffData.getHeight();
-  //const rgb = await geoTiffData.readRGB();
   const rasters = await geoTiffData.readRasters();
-  //const rgb = await (geoTiffData.readRasters()[]);
   const channels = rasters.length;
   const colorBytes = await geoTiffData.getBytesPerPixel();
 
@@ -53,28 +63,44 @@ async function geoImg(geoTiffData){
   let c = canvas.getContext('2d');
   let imageData = c.createImageData(width, height);
 
-  let range_min = 200;//0
-  let range_max = 300;//2048
-  let color = [255,0,255];
-
   console.log("resolution: " + width + " * " + height);
-
-  //console.log("canvas pixels: " + imageData.data.length);
-  //console.log("data pixels: " + rgb.length);
-
   console.log("data bytes per pixel: " + colorBytes);
   console.log("data samples per pixel: " + await geoTiffData.getSamplesPerPixel());
-  //console.log("rasters: ");
-  //console.log(rasters);
+
+  let range_min = 0;
+  let range_max = 255;
+  let color = [255,0,255];
+  let opacity = 128;
+  const use_auto_range = true;
+  const use_heat_map = true;
+  const use_data_for_opacity = true;
 
   if(channels == 1){
+
+    //AUTO RANGE
+    if(use_auto_range){
+      let highest = 0;
+      let lowest = 0;
+      for(let i = 0; i < rasters[0].length; i++){
+        let value = rasters[0][i];
+        if(value > highest) highest = value;
+        if(value < lowest) lowest = value;
+      }
+      range_min = lowest;
+      range_max = highest;
+      console.log("Auto-range enabled. Range min: " + range_min + ", max: " + range_max);
+    }
+    ///////////
+
     let pixel = 0;
     for(let i = 0; i < width*height*4; i+=4){
+      if(use_heat_map)color = heatmap(rasters[0][pixel],range_min,range_max,0,255);
+
       let r = color[0];
       let g = color[1];
       let b = color[2];
-
-      let a = scale(rasters[0][pixel],range_min,range_max,0,255);
+      let a = opacity;
+      if(use_data_for_opacity) a = scale(rasters[0][pixel],range_min,range_max,0,255);
 
       imageData.data[i+0] = r;
       imageData.data[i+1] = g;
@@ -115,9 +141,10 @@ async function geoImg(geoTiffData){
     }
   }
 
-c.putImageData(imageData,0,0);
-let imageUrl = canvas.toDataURL('image/png');
-return imageUrl;
+  c.putImageData(imageData,0,0);
+  let imageUrl = canvas.toDataURL('image/png');
+  console.log("Loading finished.");
+  return imageUrl;
 }
 
 async function geotiffUrlToImg(address){
@@ -130,7 +157,7 @@ async function geotiffUrlToImg(address){
 
 class GeoImage{
   image = new Image();
-  boundingBox = [0,0,10,10];
+  boundingBox = [0,0,0,0];
 
   constructor(image, boundingBox){
     this.image = image;
@@ -147,8 +174,6 @@ async function getGeoImage(url){
   let g = new GeoImage(imgUrl, boundingBox);
   return g;
 }
-
-//getGeoImage(url);
 
 class ImageMap extends React.Component{
   constructor(props){
