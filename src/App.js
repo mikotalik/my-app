@@ -70,19 +70,22 @@ async function geoImg(geoTiffData){
   let range_min = 0;
   let range_max = 255;
   let color = [255,0,255];
-  let opacity = 128;
+  let opacity = 150;
   const use_auto_range = true;
   const use_heat_map = true;
-  const use_data_for_opacity = true;
+  const use_data_for_opacity = false;
+
+  let r,g,b,a;
 
   if(channels == 1){
 
     //AUTO RANGE
     if(use_auto_range){
-      let highest = 0;
-      let lowest = 0;
+      let highest = Number.MIN_VALUE;
+      let lowest = Number.MAX_VALUE;
+      let value = [];
       for(let i = 0; i < rasters[0].length; i++){
-        let value = rasters[0][i];
+        value = rasters[0][i];
         if(value > highest) highest = value;
         if(value < lowest) lowest = value;
       }
@@ -93,13 +96,13 @@ async function geoImg(geoTiffData){
     ///////////
 
     let pixel = 0;
-    for(let i = 0; i < width*height*4; i+=4){
-      if(use_heat_map)color = heatmap(rasters[0][pixel],range_min,range_max,0,255);
+    for(let i = 0; i < width*height*4; i+=4){//MONOCHROME
+      if(use_heat_map) color = heatmap(rasters[0][pixel],range_min,range_max,0,255);
 
-      let r = color[0];
-      let g = color[1];
-      let b = color[2];
-      let a = opacity;
+      r = color[0];
+      g = color[1];
+      b = color[2];
+      a = opacity;
       if(use_data_for_opacity) a = scale(rasters[0][pixel],range_min,range_max,0,255);
 
       imageData.data[i+0] = r;
@@ -109,13 +112,13 @@ async function geoImg(geoTiffData){
 
       pixel++;
     }
-  }else if(channels == 3){
+  }else if(channels == 3){//RGB
     let pixel = 0;
     for(let i = 0; i < width*height*4; i+=4){
-      let r = rasters[0][pixel];
-      let g = rasters[1][pixel];
-      let b = rasters[2][pixel];
-      let a = 255;
+      r = rasters[0][pixel];
+      g = rasters[1][pixel];
+      b = rasters[2][pixel];
+      a = opacity;
 
       imageData.data[i+0] = r;
       imageData.data[i+1] = g;
@@ -124,13 +127,13 @@ async function geoImg(geoTiffData){
 
       pixel++;
     }
-  }else if(channels == 4){
+  }else if(channels == 4){//RGBA
     let pixel = 0;
     for(let i = 0; i < width*height*4; i+=4){
-      let r = rasters[0][pixel];
-      let g = rasters[1][pixel];
-      let b = rasters[2][pixel];
-      let a = rasters[3][pixel];
+      r = rasters[0][pixel];
+      g = rasters[1][pixel];
+      b = rasters[2][pixel];
+      a = rasters[3][pixel];
 
       imageData.data[i+0] = r;
       imageData.data[i+1] = g;
@@ -192,10 +195,7 @@ class ImageMap extends React.Component{
 
     console.log("Bounding box: " + this.state.boundingBox);
 
-    const layers = [
-      new BitmapLayer({id: 'bitmap-layer', bounds: this.state.boundingBox, image: this.state.image}),
-      new LineLayer({id: 'line-layer', data: [{sourcePosition: [-122.41669, 37.7853], targetPosition: [-122.41669, 37.781]}]})
-    ];
+    const layers = [new BitmapLayer({id: 'bitmap-layer', bounds: this.state.boundingBox, image: this.state.image})];
 
     return(
       <div>
