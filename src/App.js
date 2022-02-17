@@ -1,14 +1,12 @@
 import './App.css';
 import React from "react";
 import DeckGL from '@deck.gl/react';
-import {LineLayer} from '@deck.gl/layers';
 import {BitmapLayer} from '@deck.gl/layers';
 import {MapView} from "@deck.gl/core"
 import {FirstPersonView} from "@deck.gl/core"
 import {Deck} from "@deck.gl/core"
 import {StaticMap} from 'react-map-gl';
 import {fromArrayBuffer} from 'geotiff';
-import Sketch from "react-p5";
 import {printMsg} from "geoimage"
 
 const url = "dsm.tif";
@@ -59,24 +57,24 @@ async function geoImg(geoTiffData){
 
   //TRUE : COLOR RANGE WILL BE ADJUSTED FOR HIGHS AND LOWS OF THIS PICTURE
   //FALSE : COLOR RANGE WILL BE ADJUSTED FOR RANGE MIN, RANGE MAX
-  const use_auto_range = true;
+  let use_auto_range = true;
   let range_min = 0;
   let range_max = 255;
 
   //TRUE : DON'T RENDER ANYTHING WITH VALUE < CLIP_LOW OR VALUE > CLIP_HIGH
   //FALSE : ALL VALUES WILL BE RENDERED
-  const use_clip = false;
-  const clip_low = 240;
-  const clip_high = Number.MAX_VALUE;
+  let use_clip = false;
+  let clip_low = 240;
+  let clip_high = Number.MAX_VALUE;
 
   //TRUE : RENDER VALUES FROM LOWEST IN BLUE TO HIGHEST IN RED
   //FALSE : RENDER VALUES IN THE SPECIFIED COLOR
-  const use_heat_map = true;
+  let use_heat_map = true;
   let color = [255,0,255];
 
   //TRUE : LOWS RENDER MORE TRANSPARENT. HIGHS RENDER MORE OPAQUE
   //FALSE : DATA GETS RENDERED WITH THE SPECIFIED OPACITY
-  const use_data_for_opacity = false;
+  let use_data_for_opacity = false;
   let opacity = 150;
 
 
