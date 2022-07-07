@@ -10,6 +10,7 @@
     "babel-runtime": "^6.26.0",
     "deck.gl": "^8.6.8",
     "fast-geotiff": "^1.0.0-beta.4",
+    "geoimage": "file:geoimage-1.0.0.tgz",
     "geotiff": "^2.0.4",
     "p5": "^1.4.1",
     "react": "^17.0.2",

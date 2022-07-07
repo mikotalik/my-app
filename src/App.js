@@ -1,210 +1,85 @@
 import './App.css';
 import React from "react";
 import DeckGL from '@deck.gl/react';
+import {TileLayer} from '@deck.gl/geo-layers';
 import {BitmapLayer} from '@deck.gl/layers';
 import {MapView} from "@deck.gl/core"
 import {FirstPersonView} from "@deck.gl/core"
 import {Deck} from "@deck.gl/core"
 import {StaticMap} from 'react-map-gl';
-import {fromArrayBuffer} from 'geotiff';
-import {printMsg} from "geoimage"
 
-const url = "dsm.tif";
 const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoiam9ldmVjeiIsImEiOiJja3lpcms5N3ExZTAzMm5wbWRkeWFuNTA3In0.dHgiiwOgD-f7gD7qP084rg';
 
-const scale = (num, in_min, in_max, out_min, out_max) => {
-  return (num - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
-const heatmap = (num, min, max) => {
-    const ratio = 2 * (num-min) / (max - min);
-    const b = (Math.max(0, 255*(1 - ratio)));
-    const r = (Math.max(0, 255*(ratio - 1)));
-    const g = 255 - b - r;
-    return [r,g,b];
-}
-
-async function getGeotiffData(dataUrl){
-  let image;
-
-  const response = await fetch(dataUrl);
-  const arrayBuffer = await response.arrayBuffer();
-  const tiff = await fromArrayBuffer(arrayBuffer);
-  image = await tiff.getImage(0);
-
-  const origin = image.getOrigin();
-  const resolution = image.getResolution();
-  const bbox = image.getBoundingBox();
-
-  console.log("tiff origin " + origin);
-  console.log("tiff resolution " + resolution);
-
-  return image;
-}
-
-async function geoImg(geoTiffData){
-  const width = await geoTiffData.getWidth();
-  const height = await geoTiffData.getHeight();
-  const rasters = await geoTiffData.readRasters();
-  const channels = rasters.length;
-
-  let canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  let c = canvas.getContext('2d');
-  let imageData = c.createImageData(width, height);
-  console.log("resolution: " + width + " * " + height);
-
-  //TRUE : COLOR RANGE WILL BE ADJUSTED FOR HIGHS AND LOWS OF THIS PICTURE
-  //FALSE : COLOR RANGE WILL BE ADJUSTED FOR RANGE MIN, RANGE MAX
-  let use_auto_range = true;
-  let range_min = 0;
-  let range_max = 255;
-
-  //TRUE : DON'T RENDER ANYTHING WITH VALUE < CLIP_LOW OR VALUE > CLIP_HIGH
-  //FALSE : ALL VALUES WILL BE RENDERED
-  let use_clip = false;
-  let clip_low = 240;
-  let clip_high = Number.MAX_VALUE;
-
-  //TRUE : RENDER VALUES FROM LOWEST IN BLUE TO HIGHEST IN RED
-  //FALSE : RENDER VALUES IN THE SPECIFIED COLOR
-  let use_heat_map = true;
-  let color = [255,0,255];
-
-  //TRUE : LOWS RENDER MORE TRANSPARENT. HIGHS RENDER MORE OPAQUE
-  //FALSE : DATA GETS RENDERED WITH THE SPECIFIED OPACITY
-  let use_data_for_opacity = false;
-  let opacity = 150;
-
-
-  let r,g,b,a;
-
-  if(channels == 1){
-    //AUTO RANGE
-    if(use_auto_range){
-      let highest = Number.MIN_VALUE;
-      let lowest = Number.MAX_VALUE;
-      let value = [];
-      for(let i = 0; i < rasters[0].length; i++){
-        value = rasters[0][i];
-        if(value > highest) highest = value;
-        if(value < lowest) lowest = value;
-      }
-      range_min = lowest;
-      range_max = highest;
-      console.log("Auto-range enabled. Detected min: " + range_min + ", max: " + range_max);
-    }
-
-    let pixel = 0;
-    for(let i = 0; i < width*height*4; i+=4){//MONOCHROME DATA
-      if(use_heat_map) color = heatmap(rasters[0][pixel],range_min,range_max,0,255);
-
-      r = color[0];
-      g = color[1];
-      b = color[2];
-
-      a = opacity;
-
-      if((use_clip == true) && (rasters[0][pixel] < clip_low || rasters[0][pixel] > clip_high)) a = 0;
-      if(use_data_for_opacity) a = scale(rasters[0][pixel],range_min,range_max,0,255);
-
-      imageData.data[i+0] = r;
-      imageData.data[i+1] = g;
-      imageData.data[i+2] = b;
-      imageData.data[i+3] = a;
-
-      pixel++;
-    }
-  }else if(channels == 3){//RGB
-    let pixel = 0;
-    for(let i = 0; i < width*height*4; i+=4){
-      r = rasters[0][pixel];
-      g = rasters[1][pixel];
-      b = rasters[2][pixel];
-      a = opacity;
-
-      imageData.data[i+0] = r;
-      imageData.data[i+1] = g;
-      imageData.data[i+2] = b;
-      imageData.data[i+3] = a;
-
-      pixel++;
-    }
-  }else if(channels == 4){//RGBA
-    let pixel = 0;
-    for(let i = 0; i < width*height*4; i+=4){
-      r = rasters[0][pixel];
-      g = rasters[1][pixel];
-      b = rasters[2][pixel];
-      a = rasters[3][pixel];
-
-      imageData.data[i+0] = r;
-      imageData.data[i+1] = g;
-      imageData.data[i+2] = b;
-      imageData.data[i+3] = a;
-
-      pixel++;
-    }
-  }
-
-  c.putImageData(imageData,0,0);
-  let imageUrl = canvas.toDataURL('image/png');
-  console.log("Loading finished.");
-  return imageUrl;
-}
-
-async function geotiffUrlToImg(address){
-  let data = await getGeotiffData(address);
-  let imgUrl = await geoImg(data);
-
-  data.bitmap = imgUrl;
-  return data;
-}
-
-class GeoImg{
-  image = new Image();
-  boundingBox = [0,0,0,0];
-
-  constructor(image, boundingBox){
-    this.image = image;
-    this.boundingBox = boundingBox;
-  }
-}
-
-async function getGeoImg(url){
-  let data = await getGeotiffData(url);
-  let imgUrl = await geoImg(data);
-
-  let boundingBox = data.getBoundingBox();
-
-  let g = new GeoImg(imgUrl, boundingBox);
-  return g;
-}
+let maxDepth = 7; //Max zoom level we want to generate bitmaps for. More than 7 for the whole world is really slow.
+let tileSize = 256; //Size of one tile
 
 class ImageMap extends React.Component{
   constructor(props){
     super(props);
-    this.state = {image : new Image(), boundingBox : [0,0,0,0]};
+    this.state = {tiles : {}, image : new Image(), heightMap : new Image(), boundingBox : [0,0,0,0]};
   }
 
-  async componentDidMount() {
-    const data = await getGeoImg(url);
-    this.setState({image: data.image, boundingBox: data.boundingBox});
+  componentDidMount() {
+    let tiles = {}; //bitmaps will be saved by keys such as {'0-0-0', '0-0-1', '0-0-1', ... , '8-8-8'}
+    var canvas = document.createElement('canvas');
+    canvas.width = tileSize;
+    canvas.height = tileSize;
+    let context = canvas.getContext("2d");
+
+
+    for(let z = 0; z < maxDepth; z++){ //For every dept level, generate tiles
+      let splits = Math.pow(2, z); //For each level generate this many tiles in each direction (level 1 gets 2 tiles, level 2 gets 4 tiles, level 3 gets 8 tiles, and so on)
+      for(let y = 0; y < splits; y++){
+        for(let x = 0; x < splits; x++){
+          //Generate the bitmap for this tile. Clear canvas, fill with color, put text in, and save the canvas to dataUrl. Put this url as a value to tiles[x-y-z] key.
+          context.clearRect(0, 0, tileSize, tileSize);
+          context.fillStyle = "rgba(128, 0, 255, 0.5)";
+          context.fillRect(0,0,tileSize-2,tileSize-2);
+          context.font = "30px Arial";
+          context.textAlign = "center";
+          context.fillStyle = "#FFFFFF";
+          context.fillText(String(x + ', ' + y + ', ' + z), 128, 128);
+          let tile = canvas.toDataURL('image/png');
+          tiles[String(x + '-' + y + '-' + z)] = tile;
+        }
+      }
+    }
+
+    this.setState({tiles: tiles});
   }
 
   render(){
-    let initial_view_state = {longitude: this.state.boundingBox[0],latitude: this.state.boundingBox[1],zoom: 12};
-    //let initial_view_state = {longitude: -95.39842728115566,latitude: 29.763892665956423, zoom: 12};
+    let initial_view_state = {longitude: 0, latitude: 0, zoom: 0};
 
-    const layers = [new BitmapLayer({id: 'bitmap-layer', bounds: this.state.boundingBox, image: this.state.image})];
+    const layer = new TileLayer({
+    getTileData: ({x, y, z}) => {
+      let url = this.state.tiles[x+'-'+y+'-'+z]; //If requested tile x,y,z, return bitmap in tiles['x-y-z']
+      return url;
+    },
+    minZoom: 0,
+    maxZoom: maxDepth-1, //don't try to load tiles level which we didn't generate
+    tileSize: 256,
+
+    renderSubLayers: props => {
+      const {
+        bbox: {west, south, east, north}
+      } = props.tile;
+
+      return new BitmapLayer(props, {
+        data: null,
+        image: props.data,
+        bounds: [west, south, east, north]
+      });
+    }
+  });
+
 
     return(
       <div>
       <DeckGL
       initialViewState={initial_view_state}
       controller={true}
-      layers={layers} >
+      layers={[layer]} >
       <MapView id="map" width="100%" height="100%" top="100px" controller={true}>
       <StaticMap mapboxApiAccessToken={MAPBOX_ACCESS_TOKEN} />
       </MapView>
@@ -219,7 +94,7 @@ function App() {
   return (
     <div className="App">
     <h1> DECK.GL GEOTIFF TEST </h1>
-    <ImageMap GeoImg={new GeoImg}/>
+    <ImageMap/>
     </div>
   );
 }
